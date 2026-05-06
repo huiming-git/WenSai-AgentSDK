@@ -1,5 +1,8 @@
+import asyncio
 from app.runtimes.hermes_acp.event_mapper import ACPEventMapper
+
 from app.runtimes import HermesACPRuntime, RuntimeFactory
+from app.runtimes.hermes_acp.runtime import ACPChunkEventBuffer
 from app.config import INTERNAL_API_TOKEN
 from app.main import app
 from app.runs.schemas import TaskDTO
@@ -27,6 +30,46 @@ def test_acp_event_mapper_maps_agent_message():
     assert message == "hello"
     assert payload["source"] == "hermes_acp"
     assert payload["raw_event"]["sessionUpdate"] == "agent_message_chunk"
+
+
+def test_acp_chunk_event_buffer_coalesces_thought_chunks():
+    class FakeEmitter:
+        def __init__(self):
+            self.events = []
+
+        async def emit(self, event_type, content=None, metadata=None):
+            self.events.append((event_type, content, metadata))
+
+    async def run_test():
+        emitter = FakeEmitter()
+        buffer = ACPChunkEventBuffer(emitter)
+
+        await buffer.handle(
+            "agent_thinking",
+            "hel",
+            {"raw_type": "agent_thought_chunk", "raw_event": {"sessionUpdate": "agent_thought_chunk", "messageId": "m1"}},
+        )
+        await buffer.handle(
+            "agent_thinking",
+            "lo",
+            {"raw_type": "agent_thought_chunk", "raw_event": {"sessionUpdate": "agent_thought_chunk", "messageId": "m1"}},
+        )
+        await buffer.flush()
+
+        assert emitter.events == [
+            (
+                "agent_thinking",
+                "hello",
+                {
+                    "raw_type": "agent_thought_chunk",
+                    "raw_event": {"sessionUpdate": "agent_thought_chunk", "messageId": "m1"},
+                    "chunk_count": 2,
+                    "coalesced": True,
+                },
+            )
+        ]
+
+    asyncio.run(run_test())
 
 
 def test_internal_sandbox_file_upload_writes_to_task_input(tmp_path, monkeypatch):
