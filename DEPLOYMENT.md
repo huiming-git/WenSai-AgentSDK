@@ -45,6 +45,20 @@ BWRAP_COMMAND=bwrap
 
 `local-sandbox` 只是目录级本地沙盒，不等同于官方 CubeSandbox MicroVM。
 
+## 当前生产沙盒策略
+
+当前生产机暂时使用本地沙盒方案：
+
+```ini
+SANDBOX_BACKEND=local
+LOCAL_SANDBOX_DIRNAME=local-sandbox
+LOCAL_SANDBOX_ENFORCE_PROCESS=false
+```
+
+原因是当前宿主机资源不足以部署官方 CubeSandbox。CubeSandbox 安装器要求至少 8GB 内存，并要求 `/data/cubelet` 位于 XFS 文件系统；当前机器约 4GB 内存，根文件系统为 ext4。同时生产机已有 1Panel OpenResty 占用 80/443，CubeProxy 端口需要单独规划。
+
+在完成扩容、准备 XFS 数据目录，并接入官方 CubeSandbox E2B 执行适配层前，不要把生产环境切换到 `SANDBOX_BACKEND=cube`。本地沙盒可以用于当前 Hermes ACP 链路，但隔离级别不是 MicroVM。
+
 ## Dockerfile
 
 当前仓库已提供 `Dockerfile`。它只构建 AgentSDK 服务，不安装官方 CubeSandbox 宿主机组件。
