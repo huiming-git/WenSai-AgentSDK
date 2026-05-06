@@ -16,6 +16,11 @@ app = FastAPI(title="WenSai AgentSDK", version="0.1.0")
 runs: dict[str, dict[str, int | str]] = {}
 
 
+async def run_agent_task(run_id: str, task_id: int) -> None:
+    runs[run_id]["status"] = "running"
+    runs[run_id]["status"] = await TaskRunner().run(task_id)
+
+
 class SandboxCleanupRequest(BaseModel):
     workspace_root_path: str | None = None
 
@@ -42,7 +47,7 @@ async def create_agent_run(run: AgentRunCreate, background_tasks: BackgroundTask
     # can later be swapped for a queue without changing backend's contract.
     run_id = f"run_{uuid.uuid4().hex}"
     runs[run_id] = {"run_id": run_id, "task_id": run.task_id, "status": "accepted"}
-    background_tasks.add_task(TaskRunner().run, run.task_id)
+    background_tasks.add_task(run_agent_task, run_id, run.task_id)
     return AgentRunResponse(run_id=run_id, task_id=run.task_id, status="accepted")
 
 

@@ -23,7 +23,7 @@ class TaskRunner:
         self.runtime_factory = runtime_factory or RuntimeFactory()
         self.profile_manager = profile_manager or ProfileManager()
 
-    async def run(self, task_id: int) -> None:
+    async def run(self, task_id: int) -> str:
         try:
             task = await self.backend.get_task(task_id)
             await self.backend.update_status(task_id, "running")
@@ -38,6 +38,8 @@ class TaskRunner:
             archived = await OutputCollector(context).archive_outputs()
             await self.backend.emit_event(task_id, "file_saved", "输出文件已归档", {"files": archived})
             await self.backend.complete_task(task_id, {"message": result.output_text, "files": archived, "metadata": result.metadata}, result.metadata)
+            return "completed"
         except Exception as exc:
             logger.exception("Task run failed: task_id=%s", task_id)
             await self.backend.fail_task(task_id, str(exc))
+            return "failed"
