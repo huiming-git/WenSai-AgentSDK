@@ -189,7 +189,7 @@ Agent 输入文件写入 `input/`，最终产物应写入 `output/`。`OutputCol
 docker build -t wensai-agentsdk:latest .
 ```
 
-生产推荐使用仓库根目录 [docker-compose.prod.yml](../docker-compose.prod.yml)。官方 CubeSandbox 应安装在宿主机 / 裸机层。
+生产推荐在服务器上层部署目录统一编排 `Backend / AgentSDK / PostgreSQL / Redis`。本仓库只提供 AgentSDK 镜像和服务代码；官方 CubeSandbox 应安装在宿主机 / 裸机层。
 
 ## 测试
 
