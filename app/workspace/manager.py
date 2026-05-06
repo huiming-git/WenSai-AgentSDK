@@ -22,6 +22,10 @@ class WorkspaceManager:
         workspace.mkdir(parents=True, exist_ok=True)
         for name in ("input", "output", "temp", "logs"):
             (workspace / name).mkdir(parents=True, exist_ok=True)
+        parent_task_id = self.parent_task_id(task)
+        if parent_task_id and parent_task_id != task.id:
+            self.inherit_parent_inputs(parent_task_id, workspace, task.workspace_root_path)
+        self.write_conversation_context(task, workspace)
         (workspace / ".wensai-task.md").write_text(
             "\n".join(
                 [
@@ -39,6 +43,26 @@ class WorkspaceManager:
             encoding="utf-8",
         )
         return workspace
+
+    def parent_task_id(self, task: TaskDTO) -> int | None:
+        value = (task.input or {}).get("parent_task_id") if isinstance(task.input, dict) else None
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def inherit_parent_inputs(self, parent_task_id: int, workspace: Path, workspace_root_path: str | None = None) -> None:
+        parent_workspace = self.task_dir(parent_task_id, workspace_root_path)
+        parent_input = parent_workspace / "input"
+        if not parent_input.exists():
+            return
+        shutil.copytree(parent_input, workspace / "input", dirs_exist_ok=True)
+
+    def write_conversation_context(self, task: TaskDTO, workspace: Path) -> None:
+        context = (task.input or {}).get("conversation_context") if isinstance(task.input, dict) else None
+        if not isinstance(context, str) or not context.strip():
+            return
+        (workspace / "input" / "conversation_context.md").write_text(context.strip() + "\n", encoding="utf-8")
 
     def task_dir(self, task_id: int, workspace_root_path: str | None = None) -> Path:
         return self.cube_root(workspace_root_path) / f"sandbox-{task_id}"

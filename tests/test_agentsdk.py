@@ -2,6 +2,9 @@ from app.runtimes.hermes_acp.event_mapper import ACPEventMapper
 from app.runtimes import HermesACPRuntime, RuntimeFactory
 from app.config import INTERNAL_API_TOKEN
 from app.main import app
+from app.runs.schemas import TaskDTO
+from app.workspace.manager import WorkspaceManager
+from datetime import datetime
 from fastapi.testclient import TestClient
 
 
@@ -130,3 +133,30 @@ def test_internal_sandbox_file_delete_supports_output_area(tmp_path, monkeypatch
 
     assert response.status_code == 200
     assert not target.exists()
+
+
+def test_prepare_follow_up_inherits_parent_input_and_context(tmp_path):
+    manager = WorkspaceManager(root=str(tmp_path))
+    parent_input = manager.task_dir(1) / "input"
+    parent_input.mkdir(parents=True)
+    (parent_input / "slides.pptx").write_bytes(b"ppt")
+
+    task = TaskDTO(
+        id=2,
+        owner_id=1,
+        workspace_id=1,
+        title="Follow",
+        prompt="继续",
+        runtime="hermes-acp",
+        agent_type="hermes-acp",
+        model="gpt-5.5",
+        input={"parent_task_id": 1, "conversation_context": "上一轮对话"},
+        status="queued",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+    workspace = manager.prepare(task)
+
+    assert (workspace / "input" / "slides.pptx").read_bytes() == b"ppt"
+    assert (workspace / "input" / "conversation_context.md").read_text(encoding="utf-8") == "上一轮对话\n"
