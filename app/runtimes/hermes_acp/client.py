@@ -160,7 +160,8 @@ class HermesACPClient:
     async def prompt_once(self, prompt: str) -> tuple[str, dict[str, Any]]:
         command, args = self._sandboxed_command()
         client = _WenSaiACPClient(on_event=self.on_event, on_permission=self.on_permission)
-        async with spawn_agent_process(client, command, *args, cwd=self.cwd, use_unstable_protocol=True) as (conn, _process):
+        cwd = str(self.cwd) if self.cwd else "."
+        async with spawn_agent_process(client, command, *args, cwd=cwd, use_unstable_protocol=True) as (conn, _process):
             await asyncio.wait_for(
                 conn.initialize(
                     PROTOCOL_VERSION,
@@ -169,7 +170,7 @@ class HermesACPClient:
                 ),
                 timeout=self.timeout_seconds,
             )
-            session = await asyncio.wait_for(conn.new_session(cwd=self.cwd or ".", mcp_servers=[]), timeout=self.timeout_seconds)
+            session = await asyncio.wait_for(conn.new_session(cwd=cwd, mcp_servers=[]), timeout=self.timeout_seconds)
             response = await asyncio.wait_for(
                 conn.prompt([TextContentBlock(type="text", text=prompt)], session_id=session.session_id),
                 timeout=self.timeout_seconds,
